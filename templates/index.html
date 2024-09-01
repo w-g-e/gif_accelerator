@@ -15,9 +15,9 @@
         }
 
         #gifContainer img {
-            max-width: 90vw; /* limits the GIF size to 90% of the viewport width */
-            max-height: 80vh; /* limits the GIF size to 80% of the viewport height */
-            margin: 20px; /* adds some space around the GIF */
+            max-width: 90vw;
+            max-height: 80vh;
+            margin: 20px;
         }
 
         .slider-container {
@@ -28,70 +28,96 @@
         }
 
         input[type="range"] {
-            width: 50%; /* makes the slider take up 50% of its container's width */
+            width: 50%;
         }
     </style>
 </head>
 <body>
     <h1>Upload a GIF</h1>
 
-    <!-- File Input for GIF Upload -->
     <input type="file" id="fileInput" accept=".gif">
-    
-    <!-- Placeholder for the uploaded GIF -->
     <div id="gifContainer"></div>
-
-    <!-- Slider for adjusting GIF speed -->
     <div class="slider-container">
         <label for="speedSlider">Adjust Speed:</label>
         <input type="range" id="speedSlider" min="-10" max="10" value="0">
-        <span id="speedValue">0</span> <!-- Display the current value of the slider -->
+        <span id="speedValue">0</span>
     </div>
 
+    <!-- Include jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    
+    <!-- Include gif.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js"></script>
+
+    <!-- Custom script for handling GIF upload and speed adjustment -->
     <script>
+        let gifInstance = null;
+        let gif = null;
+
         $(document).ready(function() {
             $('#fileInput').change(function() {
                 const file = this.files[0];
                 if (file && file.type === 'image/gif') {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        // Display the GIF locally
+                        const gifContainer = document.getElementById('gifContainer');
+                        gifContainer.innerHTML = ''; // Clear existing content
+
                         const img = document.createElement('img');
                         img.src = e.target.result;
-                        document.getElementById('gifContainer').innerHTML = '';
-                        document.getElementById('gifContainer').appendChild(img);
+                        gifContainer.appendChild(img);
+
+                        gif = new GIF({
+                            workers: 2,
+                            quality: 10,
+                            workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+                        });
+
+                        const tempImage = new Image();
+                        tempImage.src = e.target.result;
+
+                        tempImage.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = tempImage.width;
+                            canvas.height = tempImage.height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(tempImage, 0, 0);
+                            gif.addFrame(canvas, {copy: true, delay: 100}); // Add the frame to gif.js
+                            gif.render();
+                        };
+
+                        gif.on('finished', function(blob) {
+                            const url = URL.createObjectURL(blob);
+                            const img = document.createElement('img');
+                            img.src = url;
+                            gifContainer.innerHTML = '';
+                            gifContainer.appendChild(img);
+                        });
                     };
                     reader.readAsDataURL(file);
-                    
-                    // Prepare to send the file to the server via AJAX
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    // Send the file to the server
-                    $.ajax({
-                        url: '/upload',
-                        type: 'POST',
-                        data: formData,
-                        processData: false, 
-                        contentType: false,
-                        success: function(data) {
-                            console.log('Upload successful!');
-                        },
-                        error: function(xhr, status, error) {
-                            console.error('Upload failed: ' + error);
-                        }
-                    });
                 } else {
                     alert('Please upload a valid GIF file.');
                 }
             });
 
-            // Update the speed display as the slider moves
             $('#speedSlider').on('input', function() {
-                $('#speedValue').text($(this).val());
+                const speed = $(this).val();
+                $('#speedValue').text(speed);
+                adjustGifSpeed(speed);
             });
         });
+
+        function adjustGifSpeed(speed) {
+            if (gif) {
+                const speedMultiplier = Math.pow(2, speed / 10); // Scale speed logarithmically
+                // Update the delay for all frames in the GIF
+                gif.frames.forEach(frame => {
+                    frame.delay = Math.max(10, frame.delay / speedMultiplier); // Ensure a minimum delay to avoid too fast playback
+                });
+                gif.render();
+            }
+        }
     </script>
 </body>
 </html>
