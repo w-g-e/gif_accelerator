@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF Speed Adjuster</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #gifContainer img {
+            max-width: 90vw; /* limits the GIF size to 90% of the viewport width */
+            max-height: 80vh; /* limits the GIF size to 80% of the viewport height */
+            margin: 20px; /* adds some space around the GIF */
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        input[type="range"] {
+            width: 50%; /* makes the slider take up 50% of its container's width */
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload a GIF</h1>
+
+    <!-- File Input for GIF Upload -->
+    <input type="file" id="fileInput" accept=".gif">
+    
+    <!-- Placeholder for the uploaded GIF -->
+    <div id="gifContainer"></div>
+
+    <!-- Slider for adjusting GIF speed -->
+    <div class="slider-container">
+        <label for="speedSlider">Adjust Speed:</label>
+        <input type="range" id="speedSlider" min="-10" max="10" value="0">
+        <span id="speedValue">0</span> <!-- Display the current value of the slider -->
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#fileInput').change(function() {
+                const file = this.files[0];
+                if (file && file.type === 'image/gif') {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        // Display the GIF locally
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        document.getElementById('gifContainer').innerHTML = '';
+                        document.getElementById('gifContainer').appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    // Prepare to send the file to the server via AJAX
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    // Send the file to the server
+                    $.ajax({
+                        url: '/upload',
+                        type: 'POST',
+                        data: formData,
+                        processData: false, 
+                        contentType: false,
+                        success: function(data) {
+                            console.log('Upload successful!');
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Upload failed: ' + error);
+                        }
+                    });
+                } else {
+                    alert('Please upload a valid GIF file.');
+                }
+            });
+
+            // Update the speed display as the slider moves
+            $('#speedSlider').on('input', function() {
+                $('#speedValue').text($(this).val());
+            });
+        });
+    </script>
+</body>
+</html>
