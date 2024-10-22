@@ -35,3 +35,6 @@ def uploaded_file(filename):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+def new_file():
+    return "why are you calling this function"
