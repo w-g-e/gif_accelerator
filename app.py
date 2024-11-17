@@ -13,6 +13,19 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Dictionary to track processed files for each original file
+processed_files = {}
+
+def cleanup_old_processed_file(original_filename):
+    """Delete the old processed file if it exists"""
+    if original_filename in processed_files and processed_files[original_filename] is not None:
+        old_processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_files[original_filename])
+        try:
+            if os.path.exists(old_processed_path):
+                os.remove(old_processed_path)
+                print(f"Deleted old processed file: {processed_files[original_filename]}")
+        except Exception as e:
+            print(f"Error deleting old file: {e}")
 def adjust_gif_speed(input_path, speed_factor):
     """
     Adjust the speed of a GIF file by modifying frame durations.
@@ -83,12 +96,10 @@ def adjust_gif_speed(input_path, speed_factor):
     
     return output_buffer.getvalue()
 
-# Route for the main page
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Modified upload route to return JSON
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -101,6 +112,13 @@ def upload_file():
     if file and file.filename.endswith('.gif'):
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Clean up any existing processed file for this upload
+        cleanup_old_processed_file(filename)
+        
+        # Reset the processed file tracking for this new upload
+        processed_files[filename] = None
+        
         file.save(filepath)
         return jsonify({
             'success': True,
@@ -110,47 +128,84 @@ def upload_file():
     
     return jsonify({'error': 'File is not a GIF'}), 400
 
-# New route to process GIFs
 @app.route('/process_gif', methods=['POST'])
 def process_gif():
     try:
-        # Get the speed adjustment value from the request
+        # Print debug information
+        print("Received process request:", request.form)
+        print("Current processed_files dictionary:", processed_files)
+        
         speed = float(request.form.get('speed', 0))
         filename = request.form.get('filename')
+        
+        print(f"Processing GIF with speed {speed} and filename {filename}")
         
         if not filename:
             return jsonify({'error': 'No filename provided'}), 400
         
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        print(f"Looking for input file at: {input_path}")
         
         if not os.path.exists(input_path):
-            return jsonify({'error': 'File not found'}), 404
+            print(f"File not found at path: {input_path}")
+            print(f"Contents of upload folder: {os.listdir(app.config['UPLOAD_FOLDER'])}")
+            return jsonify({'error': f'File not found: {input_path}'}), 404
+        
+        # Clean up old processed file before creating new one
+        print("Cleaning up old processed file...")
+        cleanup_old_processed_file(filename)
         
         # Process the GIF
+        print("Starting GIF processing...")
         processed_gif = adjust_gif_speed(input_path, speed)
         
-        # Generate a unique filename for the processed GIF
-        timestamp = int(time.time())
-        processed_filename = f"processed_{timestamp}_{filename}"
+        # Generate filename for the processed GIF
+        processed_filename = f"processed_{filename}"
         processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
+        print(f"Saving processed GIF to: {processed_path}")
         
-        # Save the processed GIF
+        # Save the processed GIF and update tracking
         with open(processed_path, 'wb') as f:
             f.write(processed_gif)
         
-        # Return the URL for the processed GIF
-        return jsonify({
+        # Update the tracking dictionary
+        processed_files[filename] = processed_filename
+        print(f"Updated processed_files dictionary: {processed_files}")
+        
+        result = jsonify({
             'success': True,
             'processed_url': url_for('uploaded_file', filename=processed_filename)
         })
+        print("Returning success response")
+        return result
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print("Error in process_gif:")
+        print(traceback.format_exc())  # This will print the full error traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
-# Route to display the uploaded file
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# Optional: Add cleanup on server shutdown
+import atexit
+
+@atexit.register
+def cleanup_on_exit():
+    """Clean up all processed files when the server shuts down"""
+    for filename in processed_files.values():
+        if filename:
+            try:
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                print(f"Error cleaning up file {filename}: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True)
