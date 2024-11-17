@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
 from PIL import Image
+import numpy as np
 import os
 import io
 import time
@@ -26,64 +27,56 @@ def cleanup_old_processed_file(original_filename):
                 print(f"Deleted old processed file: {processed_files[original_filename]}")
         except Exception as e:
             print(f"Error deleting old file: {e}")
-def adjust_gif_speed(input_path, speed_factor):
+
+def basic_blend_frames(frame1, frame2, alpha):
     """
-    Adjust the speed of a GIF file by modifying frame durations.
-    
-    Args:
-        input_path: Path to the input GIF file
-        speed_factor: Float between -10 and 10 where:
-            0 = original speed
-            positive = faster
-            negative = slower
-    
-    Returns:
-        bytes: The processed GIF file as bytes
+    Basic interpolation - pure alpha blend between frames with format conversion
     """
-    # Convert speed_factor to a multiplier (e.g., 2x speed, 0.5x speed)
+    try:
+        # Convert both frames to RGB mode to ensure consistent format
+        if frame1.mode != 'RGB':
+            frame1 = frame1.convert('RGB')
+        if frame2.mode != 'RGB':
+            frame2 = frame2.convert('RGB')
+            
+        # Convert frames to numpy arrays
+        f1 = np.array(frame1).astype('float32')
+        f2 = np.array(frame2).astype('float32')
+        
+        # Linear blend
+        blended = (1 - alpha) * f1 + alpha * f2
+        
+        # Convert back to uint8 and create new frame
+        return Image.fromarray(blended.astype('uint8'))
+    except Exception as e:
+        print(f"Error in basic_blend_frames: {str(e)}")
+        print(f"Frame1 mode: {frame1.mode}, Frame2 mode: {frame2.mode}")
+        print(f"Frame1 size: {frame1.size}, Frame2 size: {frame2.size}")
+        raise
+
+def adjust_gif_speed_simple(input_path, speed_factor):
+    """Original simple frame duration adjustment"""
     if speed_factor > 0:
-        # For positive values (faster), reduce duration (1 to 0.1x)
         multiplier = 1 / (1 + (speed_factor / 10) * 0.9)
     elif speed_factor < 0:
-        # For negative values (slower), increase duration (1 to 10x)
-        multiplier = 1 - (speed_factor / 10)
+        multiplier = abs(1 - (speed_factor / 10))
     else:
-        # No change
         multiplier = 1
 
-    # Open the GIF file
     img = Image.open(input_path)
-    
-    # Extract frames and their durations
     frames = []
     durations = []
     
     try:
         while True:
-            # Get current frame duration in milliseconds
-            duration = img.info.get('duration', 100)  # default to 100ms if not specified
-            
-            # Create a copy of the current frame
-            frame_copy = img.copy()
-            
-            # Adjust the duration by the multiplier
-            new_duration = int(duration * multiplier)
-            
-            # Ensure minimum duration of 20ms to prevent ultra-fast GIFs
-            new_duration = max(20, new_duration)
-            
-            frames.append(frame_copy)
-            durations.append(new_duration)
-            
-            # Move to next frame
+            duration = img.info.get('duration', 100)
+            frames.append(img.copy())
+            durations.append(int(duration * multiplier))
             img.seek(img.tell() + 1)
     except EOFError:
-        pass  # We've reached the end of the frames
+        pass
 
-    # Create output buffer
     output_buffer = io.BytesIO()
-    
-    # Save the modified GIF
     frames[0].save(
         output_buffer,
         format='GIF',
@@ -95,6 +88,91 @@ def adjust_gif_speed(input_path, speed_factor):
     )
     
     return output_buffer.getvalue()
+
+def adjust_gif_speed_with_interpolation(input_path, speed_factor):
+    """Interpolated frame blending for smooth slow motion"""
+    try:
+        print(f"\nStarting GIF processing with speed_factor: {speed_factor}")
+        
+        # Only interpolate for slowdown
+        if speed_factor >= 0:
+            return adjust_gif_speed_simple(input_path, speed_factor)
+
+        # Calculate multiplier
+        multiplier = abs(1 - (speed_factor / 10))
+        print(f"Calculated multiplier: {multiplier}")
+
+        # Open the GIF file
+        img = Image.open(input_path)
+        frames = []
+        durations = []
+        
+        try:
+            while True:
+                current_frame = img.copy()
+                if img.mode != 'RGB':
+                    current_frame = current_frame.convert('RGB')
+                frames.append(current_frame)
+                durations.append(img.info.get('duration', 100))
+                img.seek(img.tell() + 1)
+        except EOFError:
+            pass
+
+        print(f"Extracted {len(frames)} original frames")
+        
+        # Create interpolated frames
+        interpolated_frames = []
+        interpolated_durations = []
+        base_duration = durations[0]
+        
+        # More proportional calculation:
+        # -1 → 1 frame
+        # -5 → 2 frames
+        # -10 → 3 frames
+        frames_to_insert = 1 + int(abs(speed_factor) / 5)
+        print(f"Will insert {frames_to_insert} frames between each pair")
+        
+        # Process frame pairs
+        for i in range(len(frames) - 1):
+            # Add original frame
+            interpolated_frames.append(frames[i])
+            new_duration = int(base_duration * (1 + abs(speed_factor) / 10))
+            interpolated_durations.append(new_duration)
+            
+            # Add interpolated frames
+            for j in range(frames_to_insert):
+                alpha = (j + 1) / (frames_to_insert + 1)
+                blended_frame = basic_blend_frames(frames[i], frames[i + 1], alpha)
+                interpolated_frames.append(blended_frame)
+                interpolated_durations.append(new_duration)
+        
+        # Add final frame
+        interpolated_frames.append(frames[-1])
+        interpolated_durations.append(new_duration)
+        
+        print(f"Created {len(interpolated_frames)} interpolated frames")
+
+        # Create output buffer
+        output_buffer = io.BytesIO()
+        
+        # Save the modified GIF
+        interpolated_frames[0].save(
+            output_buffer,
+            format='GIF',
+            save_all=True,
+            append_images=interpolated_frames[1:],
+            duration=interpolated_durations,
+            loop=0,
+            optimize=False
+        )
+        
+        return output_buffer.getvalue()
+
+    except Exception as e:
+        print(f"Error in adjust_gif_speed_with_interpolation: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        raise
 
 @app.route('/')
 def index():
@@ -131,14 +209,14 @@ def upload_file():
 @app.route('/process_gif', methods=['POST'])
 def process_gif():
     try:
-        # Print debug information
         print("Received process request:", request.form)
         print("Current processed_files dictionary:", processed_files)
         
         speed = float(request.form.get('speed', 0))
         filename = request.form.get('filename')
+        use_interpolation = request.form.get('use_interpolation', 'false').lower() == 'true'
         
-        print(f"Processing GIF with speed {speed} and filename {filename}")
+        print(f"Processing GIF with speed {speed}, filename {filename}, interpolation: {use_interpolation}")
         
         if not filename:
             return jsonify({'error': 'No filename provided'}), 400
@@ -155,9 +233,12 @@ def process_gif():
         print("Cleaning up old processed file...")
         cleanup_old_processed_file(filename)
         
-        # Process the GIF
-        print("Starting GIF processing...")
-        processed_gif = adjust_gif_speed(input_path, speed)
+        # Process the GIF using selected method
+        print(f"Starting GIF processing with {'interpolation' if use_interpolation else 'simple'} method...")
+        if use_interpolation:
+            processed_gif = adjust_gif_speed_with_interpolation(input_path, speed)
+        else:
+            processed_gif = adjust_gif_speed_simple(input_path, speed)
         
         # Generate filename for the processed GIF
         processed_filename = f"processed_{filename}"
@@ -172,17 +253,15 @@ def process_gif():
         processed_files[filename] = processed_filename
         print(f"Updated processed_files dictionary: {processed_files}")
         
-        result = jsonify({
+        return jsonify({
             'success': True,
             'processed_url': url_for('uploaded_file', filename=processed_filename)
         })
-        print("Returning success response")
-        return result
         
     except Exception as e:
-        import traceback
         print("Error in process_gif:")
-        print(traceback.format_exc())  # This will print the full error traceback
+        import traceback
+        print(traceback.format_exc())
         return jsonify({
             'error': str(e),
             'traceback': traceback.format_exc()
