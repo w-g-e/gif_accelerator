@@ -12,47 +12,140 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
+            font-family: Arial, sans-serif;
         }
 
-        #gifContainer img {
-            max-width: 90vw;
-            max-height: 80vh;
-            margin: 20px;
+        .upload-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .comparison-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .gif-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 45%;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f8f8f8;
+        }
+
+        .gif-panel h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+
+        .arrow-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+        }
+
+        .arrow {
+            font-size: 2rem;
+            color: #666;
+        }
+
+        .gif-display {
+            width: 100%;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gif-display img {
+            max-width: 100%;
+            max-height: 60vh;
         }
 
         .slider-container {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
             width: 100%;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 8px;
+        }
+
+        .slider-label {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #666;
         }
 
         input[type="range"] {
-            width: 50%;
+            width: 80%;
+            margin: 0.5rem 0;
+        }
+
+        #speedValue {
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Add some styling for when no GIF is loaded */
+        .placeholder {
+            padding: 2rem;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            color: #666;
+            text-align: center;
+            width: 80%;
         }
     </style>
 </head>
 <body>
-    <h1>Upload a GIF</h1>
+    <div class="upload-section">
+        <h1>Upload a GIF</h1>
+        <input type="file" id="fileInput" accept=".gif">
+    </div>
 
-    <!-- File Input for GIF Upload -->
-    <input type="file" id="fileInput" accept=".gif">
-    
-    <!-- Placeholder for the uploaded GIF -->
-    <div id="gifContainer"></div>
+    <div class="comparison-container">
+        <div class="gif-panel">
+            <h3>Original GIF</h3>
+            <div class="gif-display" id="originalGifContainer">
+                <div class="placeholder">Upload a GIF to begin</div>
+            </div>
+        </div>
 
-    <!-- Slider for adjusting GIF speed -->
-    <div class="slider-container">
-        <label for="speedSlider">Adjust Speed:</label>
-        <input type="range" id="speedSlider" min="-10" max="10" value="0">
-        <span id="speedValue">0</span> <!-- Display the current value of the slider -->
+        <div class="arrow-container">
+            <div class="arrow">→</div>
+        </div>
+
+        <div class="gif-panel">
+            <h3>Adjusted GIF</h3>
+            <div class="gif-display" id="processedGifContainer">
+                <div class="placeholder">Processed GIF will appear here</div>
+            </div>
+            <div class="slider-container">
+                <div class="slider-label">Adjust Speed</div>
+                <input type="range" id="speedSlider" min="-10" max="10" value="0">
+                <span id="speedValue">0</span>
+            </div>
+        </div>
     </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
         $(document).ready(function() {
             let currentFileName = null;
-    
+
             $('#fileInput').change(function() {
                 const file = this.files[0];
                 if (file && file.type === 'image/gif') {
@@ -60,14 +153,18 @@
                     reader.onload = function(e) {
                         const img = document.createElement('img');
                         img.src = e.target.result;
-                        document.getElementById('gifContainer').innerHTML = '';
-                        document.getElementById('gifContainer').appendChild(img);
+                        document.getElementById('originalGifContainer').innerHTML = '';
+                        document.getElementById('originalGifContainer').appendChild(img);
+                        
+                        // Clear the processed GIF container and show placeholder
+                        document.getElementById('processedGifContainer').innerHTML = 
+                            '<div class="placeholder">Move the slider to adjust speed</div>';
                     };
                     reader.readAsDataURL(file);
                     
                     const formData = new FormData();
                     formData.append('file', file);
-    
+
                     $.ajax({
                         url: '/upload',
                         type: 'POST',
@@ -92,24 +189,21 @@
                     alert('Please upload a valid GIF file.');
                 }
             });
-    
-            // Add debouncing to prevent too many requests
+
             let processingTimeout = null;
-    
+
             $('#speedSlider').on('input', function() {
                 $('#speedValue').text($(this).val());
                 
-                // Clear the previous timeout
                 if (processingTimeout) {
                     clearTimeout(processingTimeout);
                 }
                 
-                // Set a new timeout
                 processingTimeout = setTimeout(() => {
                     processGif($(this).val());
-                }, 500); // Wait 500ms after the user stops moving the slider
+                }, 500);
             });
-    
+
             function processGif(speed) {
                 if (!currentFileName) {
                     console.log('No GIF uploaded yet');
@@ -128,11 +222,10 @@
                     contentType: false,
                     success: function(response) {
                         if (response.success) {
-                            // Update the displayed GIF with the processed version
                             const img = document.createElement('img');
-                            img.src = response.processed_url + '?t=' + new Date().getTime(); // Add timestamp to prevent caching
-                            document.getElementById('gifContainer').innerHTML = '';
-                            document.getElementById('gifContainer').appendChild(img);
+                            img.src = response.processed_url + '?t=' + new Date().getTime();
+                            document.getElementById('processedGifContainer').innerHTML = '';
+                            document.getElementById('processedGifContainer').appendChild(img);
                         } else {
                             console.error('Processing failed:', response.error);
                             alert('Processing failed: ' + response.error);
