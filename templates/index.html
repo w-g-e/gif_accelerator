@@ -22,7 +22,7 @@
 
         .comparison-container {
             display: flex;
-            align-items: center;
+            align-items: flex-start;  /* Changed from center to flex-start to align tops */
             justify-content: center;
             gap: 2rem;
             margin: 2rem 0;
@@ -49,9 +49,10 @@
 
         .arrow-container {
             display: flex;
-            align-items: center;
+            align-items: flex-start;  /* Changed from center to flex-start */
             justify-content: center;
             width: 60px;
+            padding-top: 100px;  /* Add padding to center arrow vertically */
         }
 
         .arrow {
@@ -72,7 +73,7 @@
             max-height: 60vh;
         }
 
-        .slider-container {
+        .controls-container {
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -81,6 +82,14 @@
             padding: 1rem;
             background-color: white;
             border-radius: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 1rem;
         }
 
         .slider-label {
@@ -99,7 +108,21 @@
             color: #333;
         }
 
-        /* Add some styling for when no GIF is loaded */
+        .download-button {
+            padding: 0.5rem 1rem;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .download-button:hover {
+            background-color: #45a049;
+        }
+
         .placeholder {
             padding: 2rem;
             border: 2px dashed #ccc;
@@ -133,10 +156,15 @@
             <div class="gif-display" id="processedGifContainer">
                 <div class="placeholder">Processed GIF will appear here</div>
             </div>
-            <div class="slider-container">
-                <div class="slider-label">Adjust Speed</div>
-                <input type="range" id="speedSlider" min="-10" max="10" value="0">
-                <span id="speedValue">0</span>
+            <div class="controls-container">
+                <div class="slider-container">
+                    <div class="slider-label">Adjust Speed</div>
+                    <input type="range" id="speedSlider" min="-10" max="10" value="0">
+                    <span id="speedValue">0</span>
+                </div>
+                <button id="downloadButton" class="download-button" style="display: none;">
+                    Download Adjusted GIF
+                </button>
             </div>
         </div>
     </div>
@@ -145,6 +173,7 @@
     <script>
         $(document).ready(function() {
             let currentFileName = null;
+            let currentProcessedUrl = null;
 
             $('#fileInput').change(function() {
                 const file = this.files[0];
@@ -156,9 +185,9 @@
                         document.getElementById('originalGifContainer').innerHTML = '';
                         document.getElementById('originalGifContainer').appendChild(img);
                         
-                        // Clear the processed GIF container and show placeholder
                         document.getElementById('processedGifContainer').innerHTML = 
                             '<div class="placeholder">Move the slider to adjust speed</div>';
+                        $('#downloadButton').hide();
                     };
                     reader.readAsDataURL(file);
                     
@@ -226,6 +255,8 @@
                             img.src = response.processed_url + '?t=' + new Date().getTime();
                             document.getElementById('processedGifContainer').innerHTML = '';
                             document.getElementById('processedGifContainer').appendChild(img);
+                            currentProcessedUrl = response.processed_url;
+                            $('#downloadButton').show();
                         } else {
                             console.error('Processing failed:', response.error);
                             alert('Processing failed: ' + response.error);
@@ -237,6 +268,19 @@
                     }
                 });
             }
+
+            // Add download button functionality
+            $('#downloadButton').click(function() {
+                if (currentProcessedUrl) {
+                    // Create a temporary link and trigger download
+                    const link = document.createElement('a');
+                    link.href = currentProcessedUrl;
+                    link.download = 'adjusted_' + currentFileName; // Set the download filename
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            });
         });
     </script>
 </body>
