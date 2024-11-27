@@ -5,14 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GIF Speed Adjuster</title>
     <style>
-        body, html {
-            height: 100%;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            font-family: Arial, sans-serif;
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        /* Fixed title and centered upload section */
+        .app-title {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+            font-weight: bold;
         }
 
         .upload-section {
@@ -20,82 +29,36 @@
             margin-bottom: 2rem;
         }
 
+        /* Flex container for aligned panels */
         .comparison-container {
             display: flex;
-            align-items: flex-start;
             justify-content: center;
+            align-items: flex-start;  /* This ensures tops are aligned */
             gap: 2rem;
-            margin: 2rem 0;
-            width: 100%;
-            max-width: 1200px;
         }
 
         .gif-panel {
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 45%;
-            padding: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #f8f8f8;
-        }
-
-        .gif-panel h3 {
-            margin: 0 0 1rem 0;
-            color: #333;
-        }
-
-        .arrow-container {
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            width: 60px;
-            padding-top: 100px;
-        }
-
-        .arrow {
-            font-size: 2rem;
-            color: #666;
+            text-align: center;
         }
 
         .gif-display {
-            width: 100%;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            margin: 0.5rem 0;
             min-height: 200px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .gif-display img {
-            max-width: 100%;
-            max-height: 60vh;
-        }
-
         .controls-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
             margin-top: 1rem;
-            padding: 1rem;
-            background-color: white;
-            border-radius: 8px;
+            text-align: center;
         }
 
         .slider-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            margin-bottom: 1rem;
-        }
-
-        .slider-label {
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: #666;
+            margin: 1rem 0;
         }
 
         input[type="range"] {
@@ -103,214 +66,200 @@
             margin: 0.5rem 0;
         }
 
-        #speedValue {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .toggle-button {
-            padding: 0.5rem 1rem;
-            background-color: #4A5568;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
+        /* Consistent button styling */
+        button {
+            display: block;
+            width: 100%;
             margin: 0.5rem 0;
-            transition: background-color 0.2s;
-        }
-
-        .toggle-button:hover {
-            background-color: #2D3748;
-        }
-
-        .download-button {
             padding: 0.5rem 1rem;
-            background-color: #4CAF50;
+            background-color: #007bff;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 1rem;
-            margin-top: 0.5rem;
+            font-size: 0.9rem;
         }
 
-        .download-button:hover {
-            background-color: #45a049;
+        button:disabled {
+            background-color: #ccc;
         }
 
-        .placeholder {
-            padding: 2rem;
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            color: #666;
-            text-align: center;
-            width: 80%;
+        /* Hide file input and style its label as a button */
+        #fileInput {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .file-input-label:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
+    <div class="app-title">GIF Speed Adjuster</div>
+
     <div class="upload-section">
-        <h1>Upload a GIF</h1>
         <input type="file" id="fileInput" accept=".gif">
+        <label for="fileInput" class="file-input-label">Choose a GIF file</label>
     </div>
 
     <div class="comparison-container">
         <div class="gif-panel">
             <h3>Original GIF</h3>
-            <div class="gif-display" id="originalGifContainer">
+            <div id="originalGifContainer" class="gif-display">
                 <div class="placeholder">Upload a GIF to begin</div>
             </div>
         </div>
 
-        <div class="arrow-container">
-            <div class="arrow">→</div>
-        </div>
-
         <div class="gif-panel">
             <h3>Adjusted GIF</h3>
-            <div class="gif-display" id="processedGifContainer">
+            <div id="processedGifContainer" class="gif-display">
                 <div class="placeholder">Processed GIF will appear here</div>
             </div>
+
             <div class="controls-container">
                 <div class="slider-container">
-                    <div class="slider-label">Adjust Speed</div>
-                    <input type="range" id="speedSlider" min="-10" max="10" value="0">
+                    <label>Adjust Speed</label>
+                    <input type="range" id="speedSlider" min="-10" max="10" value="0" step="1">
                     <span id="speedValue">0</span>
                 </div>
-                <button id="interpolationToggle" class="toggle-button" style="display: none;">
-                    Smooth out the slo-mo
-                </button>
-                <button id="downloadButton" class="download-button" style="display: none;">
-                    Download Adjusted GIF
-                </button>
+
+                <button id="interpolationButton">Smooth out the slo-mo</button>
+                <button id="downloadButton" disabled>Download Adjusted GIF</button>
             </div>
         </div>
     </div>
 
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
-        $(document).ready(function() {
-            let currentFileName = null;
-            let currentProcessedUrl = null;
-            let useInterpolation = false;
+        let currentFile = null;
+        let processedUrl = null;
+        let processingInProgress = false;
+        let interpolationEnabled = false;
 
-            function processGifWithMode(speed) {
-                if (!currentFileName) {
-                    console.log('No GIF uploaded yet');
-                    return;
-                }
-                
-                const formData = new FormData();
-                formData.append('speed', speed);
-                formData.append('filename', currentFileName);
-                formData.append('use_interpolation', useInterpolation);
-                
-                $.ajax({
-                    url: '/process_gif',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        if (response.success) {
-                            const img = document.createElement('img');
-                            img.src = response.processed_url + '?t=' + new Date().getTime();
-                            document.getElementById('processedGifContainer').innerHTML = '';
-                            document.getElementById('processedGifContainer').appendChild(img);
-                            currentProcessedUrl = response.processed_url;
-                            $('#downloadButton').show();
-                            $('#interpolationToggle').show();
-                        } else {
-                            console.error('Processing failed:', response.error);
-                            alert('Processing failed: ' + response.error);
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Processing failed:', error);
-                        alert('Processing failed: ' + error);
-                    }
-                });
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const speedSlider = document.getElementById('speedSlider');
+            const speedValue = document.getElementById('speedValue');
+            const interpolationButton = document.getElementById('interpolationButton');
+            const downloadButton = document.getElementById('downloadButton');
+            const originalContainer = document.getElementById('originalGifContainer');
+            const processedContainer = document.getElementById('processedGifContainer');
+
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
             }
 
-            $('#interpolationToggle').click(function() {
-                useInterpolation = !useInterpolation;
-                $(this).text(useInterpolation ? 'Take me back to janky town' : 'Smooth out the slo-mo');
-                
-                const currentSpeed = $('#speedSlider').val();
-                processGifWithMode(currentSpeed);
-            });
-
-            let processingTimeout = null;
-
-            $('#speedSlider').on('input', function() {
-                $('#speedValue').text($(this).val());
-                
-                if (processingTimeout) {
-                    clearTimeout(processingTimeout);
-                }
-                
-                processingTimeout = setTimeout(() => {
-                    processGifWithMode($(this).val());
-                }, 500);
-            });
-
-            $('#fileInput').change(function() {
-                const file = this.files[0];
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
                 if (file && file.type === 'image/gif') {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        document.getElementById('originalGifContainer').innerHTML = '';
-                        document.getElementById('originalGifContainer').appendChild(img);
-                        
-                        document.getElementById('processedGifContainer').innerHTML = 
-                            '<div class="placeholder">Move the slider to adjust speed</div>';
-                        $('#interpolationToggle').hide();
-                        $('#downloadButton').hide();
-                    };
-                    reader.readAsDataURL(file);
-                    
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    $.ajax({
-                        url: '/upload',
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(response) {
-                            if (response.success) {
-                                currentFileName = response.filename;
-                                console.log('Upload successful! File:', currentFileName);
-                                $('#interpolationToggle').show();
-                            } else {
-                                console.error('Upload failed:', response.error);
-                                alert('Upload failed: ' + response.error);
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            console.error('Upload failed:', error);
-                            alert('Upload failed: ' + error);
-                        }
-                    });
+                    uploadFile(file);
                 } else {
-                    alert('Please upload a valid GIF file.');
+                    alert('Please select a GIF file.');
                 }
             });
 
-            $('#downloadButton').click(function() {
-                if (currentProcessedUrl) {
-                    const link = document.createElement('a');
-                    link.href = currentProcessedUrl;
-                    link.download = 'adjusted_' + currentFileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+            const debouncedProcessGif = debounce(processGif, 250);
+
+            speedSlider.addEventListener('input', function(e) {
+                speedValue.textContent = this.value;
+                if (currentFile) {
+                    debouncedProcessGif();
                 }
             });
+
+            interpolationButton.addEventListener('click', function() {
+                interpolationEnabled = !interpolationEnabled;
+                this.style.backgroundColor = interpolationEnabled ? '#28a745' : '#007bff';
+                if (currentFile) {
+                    processGif();
+                }
+            });
+
+            downloadButton.addEventListener('click', function() {
+                if (processedUrl) {
+                    const link = document.createElement('a');
+                    link.href = processedUrl;
+                    link.download = 'processed_' + currentFile.name;
+                    link.click();
+                }
+            });
+
+            async function uploadFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        currentFile = file;
+                        originalContainer.innerHTML = `<img src="${data.url}" alt="Original GIF">`;
+                        processGif();
+                    } else {
+                        alert('Upload failed: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    alert('Upload failed. Please try again.');
+                }
+            }
+
+            async function processGif() {
+                if (!currentFile || processingInProgress) return;
+
+                processingInProgress = true;
+                const formData = new FormData();
+                formData.append('filename', currentFile.name);
+                formData.append('speed', speedSlider.value);
+                formData.append('use_interpolation', interpolationEnabled);
+
+                try {
+                    const currentImg = processedContainer.querySelector('img');
+                    
+                    const response = await fetch('/process_gif', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        processedUrl = data.processed_url;
+                        const newImg = new Image();
+                        newImg.onload = function() {
+                            processedContainer.innerHTML = '';
+                            processedContainer.appendChild(newImg);
+                        };
+                        newImg.src = `${processedUrl}?t=${Date.now()}`;
+                        downloadButton.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Processing error:', error);
+                } finally {
+                    processingInProgress = false;
+                }
+            }
         });
     </script>
 </body>
