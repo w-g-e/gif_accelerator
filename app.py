@@ -8,17 +8,14 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# Define the path where uploaded files will be stored
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Dictionary to track processed files for each original file
 processed_files = {}
 
 def cleanup_old_processed_file(original_filename):
-    """Delete the old processed file if it exists"""
     if original_filename in processed_files and processed_files[original_filename] is not None:
         old_processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_files[original_filename])
         try:
@@ -29,24 +26,14 @@ def cleanup_old_processed_file(original_filename):
             print(f"Error deleting old file: {e}")
 
 def basic_blend_frames(frame1, frame2, alpha):
-    """
-    Basic interpolation - pure alpha blend between frames with format conversion
-    """
     try:
-        # Convert both frames to RGB mode to ensure consistent format
         if frame1.mode != 'RGB':
             frame1 = frame1.convert('RGB')
         if frame2.mode != 'RGB':
             frame2 = frame2.convert('RGB')
-            
-        # Convert frames to numpy arrays
         f1 = np.array(frame1).astype('float32')
         f2 = np.array(frame2).astype('float32')
-        
-        # Linear blend
         blended = (1 - alpha) * f1 + alpha * f2
-        
-        # Convert back to uint8 and create new frame
         return Image.fromarray(blended.astype('uint8'))
     except Exception as e:
         print(f"Error in basic_blend_frames: {str(e)}")
@@ -55,7 +42,6 @@ def basic_blend_frames(frame1, frame2, alpha):
         raise
 
 def adjust_gif_speed_simple(input_path, speed_factor):
-    """Original simple frame duration adjustment"""
     if speed_factor > 0:
         multiplier = 1 / (1 + (speed_factor / 10) * 0.9)
     elif speed_factor < 0:
@@ -90,19 +76,15 @@ def adjust_gif_speed_simple(input_path, speed_factor):
     return output_buffer.getvalue()
 
 def adjust_gif_speed_with_interpolation(input_path, speed_factor):
-    """Interpolated frame blending for smooth slow motion"""
     try:
         print(f"\nStarting GIF processing with speed_factor: {speed_factor}")
         
-        # Only interpolate for slowdown
         if speed_factor >= 0:
             return adjust_gif_speed_simple(input_path, speed_factor)
 
-        # Calculate multiplier
         multiplier = abs(1 - (speed_factor / 10))
         print(f"Calculated multiplier: {multiplier}")
 
-        # Open the GIF file
         img = Image.open(input_path)
         frames = []
         durations = []
@@ -120,42 +102,27 @@ def adjust_gif_speed_with_interpolation(input_path, speed_factor):
 
         print(f"Extracted {len(frames)} original frames")
         
-        # Create interpolated frames
         interpolated_frames = []
         interpolated_durations = []
         base_duration = durations[0]
         
-        # More proportional calculation:
-        # -1 → 1 frame
-        # -5 → 2 frames
-        # -10 → 3 frames
         frames_to_insert = 1 + int(abs(speed_factor) / 5)
         print(f"Will insert {frames_to_insert} frames between each pair")
-        
-        # Process frame pairs
         for i in range(len(frames) - 1):
-            # Add original frame
             interpolated_frames.append(frames[i])
             new_duration = int(base_duration * (1 + abs(speed_factor) / 10))
             interpolated_durations.append(new_duration)
-            
-            # Add interpolated frames
             for j in range(frames_to_insert):
                 alpha = (j + 1) / (frames_to_insert + 1)
                 blended_frame = basic_blend_frames(frames[i], frames[i + 1], alpha)
                 interpolated_frames.append(blended_frame)
                 interpolated_durations.append(new_duration)
-        
-        # Add final frame
         interpolated_frames.append(frames[-1])
         interpolated_durations.append(new_duration)
         
         print(f"Created {len(interpolated_frames)} interpolated frames")
 
-        # Create output buffer
         output_buffer = io.BytesIO()
-        
-        # Save the modified GIF
         interpolated_frames[0].save(
             output_buffer,
             format='GIF',
@@ -190,11 +157,7 @@ def upload_file():
     if file and file.filename.endswith('.gif'):
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-        # Clean up any existing processed file for this upload
         cleanup_old_processed_file(filename)
-        
-        # Reset the processed file tracking for this new upload
         processed_files[filename] = None
         
         file.save(filepath)
@@ -229,27 +192,18 @@ def process_gif():
             print(f"Contents of upload folder: {os.listdir(app.config['UPLOAD_FOLDER'])}")
             return jsonify({'error': f'File not found: {input_path}'}), 404
         
-        # Clean up old processed file before creating new one
         print("Cleaning up old processed file...")
         cleanup_old_processed_file(filename)
-        
-        # Process the GIF using selected method
         print(f"Starting GIF processing with {'interpolation' if use_interpolation else 'simple'} method...")
         if use_interpolation:
             processed_gif = adjust_gif_speed_with_interpolation(input_path, speed)
         else:
             processed_gif = adjust_gif_speed_simple(input_path, speed)
-        
-        # Generate filename for the processed GIF
         processed_filename = f"processed_{filename}"
         processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
         print(f"Saving processed GIF to: {processed_path}")
-        
-        # Save the processed GIF and update tracking
         with open(processed_path, 'wb') as f:
             f.write(processed_gif)
-        
-        # Update the tracking dictionary
         processed_files[filename] = processed_filename
         print(f"Updated processed_files dictionary: {processed_files}")
         
@@ -271,12 +225,10 @@ def process_gif():
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-# Optional: Add cleanup on server shutdown
 import atexit
 
 @atexit.register
 def cleanup_on_exit():
-    """Clean up all processed files when the server shuts down"""
     for filename in processed_files.values():
         if filename:
             try:
@@ -287,4 +239,4 @@ def cleanup_on_exit():
                 print(f"Error cleaning up file {filename}: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8080)

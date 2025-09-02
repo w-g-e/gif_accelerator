@@ -29,6 +29,38 @@
             margin-bottom: 2rem;
         }
 
+        .drop-zone {
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            padding: 3rem 2rem;
+            margin: 1rem 0;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone:hover {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+
+        .drop-zone.dragover {
+            border-color: #007bff;
+            background-color: #e6f3ff;
+            transform: scale(1.02);
+        }
+
+        .drop-zone-text {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .drop-zone-subtext {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
         /* Flex container for aligned panels */
         .comparison-container {
             display: flex;
@@ -84,31 +116,17 @@
             background-color: #ccc;
         }
 
-        /* Hide file input and style its label as a button */
-        #fileInput {
-            display: none;
-        }
-
-        .file-input-label {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background-color: #007bff;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .file-input-label:hover {
-            background-color: #0056b3;
-        }
     </style>
 </head>
 <body>
     <div class="app-title">GIF Speed Adjuster</div>
 
     <div class="upload-section">
-        <input type="file" id="fileInput" accept=".gif">
-        <label for="fileInput" class="file-input-label">Choose a GIF file</label>
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-text">Drop your GIF here</div>
+            <div class="drop-zone-subtext">or click to browse files</div>
+        </div>
+        <input type="file" id="fileInput" accept=".gif" style="display: none;">
     </div>
 
     <div class="comparison-container">
@@ -146,6 +164,7 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             const fileInput = document.getElementById('fileInput');
+            const dropZone = document.getElementById('dropZone');
             const speedSlider = document.getElementById('speedSlider');
             const speedValue = document.getElementById('speedValue');
             const interpolationButton = document.getElementById('interpolationButton');
@@ -164,6 +183,38 @@
                     timeout = setTimeout(later, wait);
                 };
             }
+
+            dropZone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.type === 'image/gif') {
+                        uploadFile(file);
+                    } else {
+                        alert('Please drop a GIF file.');
+                    }
+                }
+            });
 
             fileInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
