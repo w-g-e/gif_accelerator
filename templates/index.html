@@ -85,17 +85,27 @@
         }
 
         .controls-container {
-            margin-top: 1rem;
+            margin: 2rem auto 0;
+            max-width: 300px;
             text-align: center;
         }
 
         .slider-container {
             margin: 1rem 0;
+            text-align: center;
         }
 
         input[type="range"] {
             width: 80%;
             margin: 0.5rem 0;
+            transition: all 0.1s ease;
+        }
+
+        #speedValue {
+            display: inline-block;
+            min-width: 120px;
+            font-weight: bold;
+            color: #007bff;
         }
 
         /* Consistent button styling */
@@ -142,18 +152,18 @@
             <div id="processedGifContainer" class="gif-display">
                 <div class="placeholder">Processed GIF will appear here</div>
             </div>
-
-            <div class="controls-container">
-                <div class="slider-container">
-                    <label>Adjust Speed</label>
-                    <input type="range" id="speedSlider" min="-10" max="10" value="0" step="1">
-                    <span id="speedValue">0</span>
-                </div>
-
-                <button id="interpolationButton">Smooth out the slo-mo</button>
-                <button id="downloadButton" disabled>Download Adjusted GIF</button>
-            </div>
         </div>
+    </div>
+
+    <div class="controls-container">
+        <div class="slider-container">
+            <label>Adjust Speed</label><br>
+            <input type="range" id="speedSlider" min="-10" max="10" value="0" step="1"><br>
+            <span id="speedValue">0</span>
+        </div>
+
+        <button id="interpolationButton">Smooth out the slo-mo</button>
+        <button id="downloadButton" disabled>Download Adjusted GIF</button>
     </div>
 
     <script>
@@ -171,6 +181,21 @@
             const downloadButton = document.getElementById('downloadButton');
             const originalContainer = document.getElementById('originalGifContainer');
             const processedContainer = document.getElementById('processedGifContainer');
+
+            function getSpeedText(value) {
+                const speed = parseInt(value);
+                if (speed === 0) return 'Normal speed';
+                if (speed > 0) {
+                    const multiplier = (1 + (speed / 10) * 0.9).toFixed(1);
+                    return `${multiplier}× faster`;
+                } else {
+                    const multiplier = Math.abs(1 - (speed / 10)).toFixed(1);
+                    return `${multiplier}× slower`;
+                }
+            }
+
+            // Initialize speed text
+            speedValue.textContent = getSpeedText(speedSlider.value);
 
             function debounce(func, wait) {
                 let timeout;
@@ -225,11 +250,11 @@
                 }
             });
 
-            const debouncedProcessGif = debounce(processGif, 250);
+            const debouncedProcessGif = debounce(processGif, 500);
 
             speedSlider.addEventListener('input', function(e) {
-                speedValue.textContent = this.value;
-                if (currentFile) {
+                speedValue.textContent = getSpeedText(this.value);
+                if (currentFile && !processingInProgress) {
                     debouncedProcessGif();
                 }
             });
