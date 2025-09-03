@@ -13,17 +13,6 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-processed_files = {}
-
-def cleanup_old_processed_file(original_filename):
-    if original_filename in processed_files and processed_files[original_filename] is not None:
-        old_processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_files[original_filename])
-        try:
-            if os.path.exists(old_processed_path):
-                os.remove(old_processed_path)
-                print(f"Deleted old processed file: {processed_files[original_filename]}")
-        except Exception as e:
-            print(f"Error deleting old file: {e}")
 
 def basic_blend_frames(frame1, frame2, alpha):
     try:
@@ -157,8 +146,6 @@ def upload_file():
     if file and file.filename.endswith('.gif'):
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        cleanup_old_processed_file(filename)
-        processed_files[filename] = None
         
         file.save(filepath)
         return jsonify({
@@ -173,7 +160,6 @@ def upload_file():
 def process_gif():
     try:
         print("Received process request:", request.form)
-        print("Current processed_files dictionary:", processed_files)
         
         speed = float(request.form.get('speed', 0))
         filename = request.form.get('filename')
@@ -192,24 +178,10 @@ def process_gif():
             print(f"Contents of upload folder: {os.listdir(app.config['UPLOAD_FOLDER'])}")
             return jsonify({'error': f'File not found: {input_path}'}), 404
         
-        print("Cleaning up old processed file...")
-        cleanup_old_processed_file(filename)
-        print(f"Starting GIF processing with {'interpolation' if use_interpolation else 'simple'} method...")
-        if use_interpolation:
-            processed_gif = adjust_gif_speed_with_interpolation(input_path, speed)
-        else:
-            processed_gif = adjust_gif_speed_simple(input_path, speed)
-        processed_filename = f"processed_{filename}"
-        processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
-        print(f"Saving processed GIF to: {processed_path}")
-        with open(processed_path, 'wb') as f:
-            f.write(processed_gif)
-        processed_files[filename] = processed_filename
-        print(f"Updated processed_files dictionary: {processed_files}")
-        
         return jsonify({
             'success': True,
-            'processed_url': url_for('uploaded_file', filename=processed_filename)
+            'processed_url': url_for('download_processed', filename=filename, speed=speed, use_interpolation=use_interpolation),
+            'cleanup_original': True
         })
         
     except Exception as e:
@@ -221,22 +193,56 @@ def process_gif():
             'traceback': traceback.format_exc()
         }), 500
 
+@app.route('/download_processed/<filename>')
+def download_processed(filename):
+    try:
+        speed = float(request.args.get('speed', 0))
+        use_interpolation = request.args.get('use_interpolation', 'false').lower() == 'true'
+        
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        if not os.path.exists(input_path):
+            return jsonify({'error': f'File not found: {input_path}'}), 404
+        
+        print(f"Streaming processed GIF with speed {speed}, interpolation: {use_interpolation}")
+        
+        if use_interpolation:
+            processed_gif = adjust_gif_speed_with_interpolation(input_path, speed)
+        else:
+            processed_gif = adjust_gif_speed_simple(input_path, speed)
+        
+        return app.response_class(
+            processed_gif,
+            mimetype='image/gif',
+            headers={
+                'Content-Disposition': f'attachment; filename="processed_{filename}"'
+            }
+        )
+        
+    except Exception as e:
+        print("Error in download_processed:")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-import atexit
-
-@atexit.register
-def cleanup_on_exit():
-    for filename in processed_files.values():
-        if filename:
-            try:
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-            except Exception as e:
-                print(f"Error cleaning up file {filename}: {e}")
+@app.route('/cleanup_original/<filename>', methods=['POST'])
+def cleanup_original(filename):
+    try:
+        original_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(original_path):
+            os.remove(original_path)
+            print(f"Cleaned up original file: {filename}")
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error cleaning up original file {filename}: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)

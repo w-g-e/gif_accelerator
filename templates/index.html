@@ -252,6 +252,17 @@
             });
 
             async function uploadFile(file) {
+                // Clean up previous file if it exists
+                if (currentFile) {
+                    try {
+                        await fetch(`/cleanup_original/${currentFile.name}`, {
+                            method: 'POST'
+                        });
+                    } catch (error) {
+                        console.log('Cleanup error (non-critical):', error);
+                    }
+                }
+
                 const formData = new FormData();
                 formData.append('file', file);
 
