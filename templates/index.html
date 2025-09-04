@@ -66,13 +66,33 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;  /* This ensures tops are aligned */
-            gap: 2rem;
+            gap: 1.5rem;
         }
 
         .gif-panel {
             flex: 1;
             text-align: center;
         }
+
+        .music-section {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .beat-finder-large {
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 1rem 0;
+            background-color: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+
+        .beat-finder-large:hover {
+            border-color: #1db954;
+            background-color: #f0f8f0;
+        }
+
 
         .gif-display {
             border: 1px solid #ddd;
@@ -164,6 +184,23 @@
 
         <button id="interpolationButton">Smooth out the slo-mo</button>
         <button id="downloadButton" disabled>Download Adjusted GIF</button>
+    </div>
+
+    <div class="music-section">
+        <h3>🎵 Find Your Beat</h3>
+        <div class="beat-finder-large">
+            <p style="font-size: 0.9rem; margin-top: 0;">Play a track and adjust your GIF speed to match the beat!</p>
+            <iframe data-testid="embed-iframe" 
+                    style="border-radius:12px; margin-top: 1rem;" 
+                    src="https://open.spotify.com/embed/playlist/0Atj090afxxQGqXKAFKBV1?utm_source=generator" 
+                    width="100%" 
+                    height="380" 
+                    frameBorder="0" 
+                    allowfullscreen="" 
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                    loading="lazy">
+            </iframe>
+        </div>
     </div>
 
     <script>
