@@ -1,0 +1,206 @@
+/* Animated gradient background */
+body {
+    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    background-size: 400% 400%;
+    animation: gradientShift 30s ease infinite;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    color: #333;
+    min-height: 100vh;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Fixed title and centered upload section */
+.app-title {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.upload-section {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.drop-zone {
+    border: 3px dashed rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    margin: 1rem 0;
+    background-color: rgba(255,255,255,0.9);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.drop-zone:hover {
+    border-color: #007bff;
+    background-color: rgba(240,248,255,0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.drop-zone.dragover {
+    border-color: #007bff;
+    background-color: rgba(230,243,255,0.95);
+    transform: scale(1.02);
+}
+
+.drop-zone-text {
+    font-size: 1.2rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.drop-zone-subtext {
+    font-size: 0.9rem;
+    color: #999;
+}
+
+/* Flex container for aligned panels */
+.comparison-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.gif-panel {
+    flex: 1;
+    text-align: center;
+}
+
+.gif-panel h3 {
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 1rem;
+}
+
+.music-section {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.music-section h3 {
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.beat-finder-large {
+    border: 3px dashed rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1rem 0;
+    background-color: rgba(255,255,255,0.9);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.beat-finder-large:hover {
+    border-color: #1db954;
+    background-color: rgba(240,248,240,0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.gif-display {
+    border: 1px solid rgba(255,255,255,0.7);
+    padding: 1rem;
+    margin: 0.5rem 0;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255,255,255,0.9);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.gif-display .placeholder {
+    color: #666;
+}
+
+.controls-container {
+    margin: 2rem auto 0;
+    max-width: 300px;
+    text-align: center;
+    background-color: rgba(255,255,255,0.9);
+    padding: 1.5rem;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.slider-container {
+    margin: 1rem 0;
+    text-align: center;
+}
+
+.slider-container label {
+    color: #333;
+    font-weight: 600;
+}
+
+input[type="range"] {
+    width: 80%;
+    margin: 0.5rem 0;
+    transition: all 0.1s ease;
+}
+
+#speedValue {
+    display: inline-block;
+    min-width: 120px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+/* Consistent button styling */
+button {
+    display: block;
+    width: 100%;
+    margin: 0.5rem 0;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,123,255,0.4);
+}
+
+button:disabled {
+    background: #ccc;
+    box-shadow: none;
+    transform: none;
+}
+
+button:active {
+    transform: translateY(0);
+}
