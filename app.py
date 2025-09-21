@@ -8,11 +8,30 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = 'uploads'
+# Security configuration
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB file size limit
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['PROCESSING_TIMEOUT'] = 30  # 30 seconds processing timeout
+
+UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+
+# Note: Advanced timeout implementation would require threading or multiprocessing
+# For now, we rely on reasonable frame limits in the GIF processing functions
+
+def validate_file_size(file_stream):
+    """Validate file size without loading entire file into memory"""
+    file_stream.seek(0, 2)  # Seek to end
+    size = file_stream.tell()
+    file_stream.seek(0)  # Reset to beginning
+
+    max_size = app.config['MAX_CONTENT_LENGTH']
+    if size > max_size:
+        raise ValueError(f"File size ({size} bytes) exceeds maximum allowed size ({max_size} bytes)")
+
+    return size
 
 def basic_blend_frames(frame1, frame2, alpha):
     try:
@@ -136,81 +155,119 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file and file.filename.endswith('.gif'):
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        # Validate file size
+        try:
+            file_size = validate_file_size(file.stream)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 413
+
+        # Validate file type
+        if not (file and file.filename.lower().endswith('.gif')):
+            return jsonify({'error': 'File must be a GIF'}), 400
+
+        # Validate GIF header (magic bytes)
+        file.stream.seek(0)
+        header = file.stream.read(6)
+        file.stream.seek(0)
+
+        if not (header.startswith(b'GIF87a') or header.startswith(b'GIF89a')):
+            return jsonify({'error': 'Invalid GIF file format'}), 400
+
         filename = secure_filename(file.filename)
+        if not filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
+
         file.save(filepath)
         return jsonify({
             'success': True,
             'filename': filename,
-            'url': url_for('uploaded_file', filename=filename)
+            'url': url_for('uploaded_file', filename=filename),
+            'size': file_size
         })
-    
-    return jsonify({'error': 'File is not a GIF'}), 400
+
+    except Exception as e:
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @app.route('/process_gif', methods=['POST'])
 def process_gif():
     try:
         print("Received process request:", request.form)
-        
-        speed = float(request.form.get('speed', 0))
+
+        # Validate speed parameter
+        try:
+            speed = float(request.form.get('speed', 0))
+            if not -10 <= speed <= 10:
+                return jsonify({'error': 'Speed parameter must be between -10 and 10'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid speed parameter'}), 400
+
         filename = request.form.get('filename')
         use_interpolation = request.form.get('use_interpolation', 'false').lower() == 'true'
-        
+
         print(f"Processing GIF with speed {speed}, filename {filename}, interpolation: {use_interpolation}")
-        
+
         if not filename:
             return jsonify({'error': 'No filename provided'}), 400
-        
+
+        # Sanitize filename
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         print(f"Looking for input file at: {input_path}")
-        
+
         if not os.path.exists(input_path):
-            print(f"File not found at path: {input_path}")
-            print(f"Contents of upload folder: {os.listdir(app.config['UPLOAD_FOLDER'])}")
-            return jsonify({'error': f'File not found: {input_path}'}), 404
-        
+            return jsonify({'error': 'File not found'}), 404
+
         return jsonify({
             'success': True,
             'processed_url': url_for('download_processed', filename=filename, speed=speed, use_interpolation=use_interpolation),
             'cleanup_original': True
         })
-        
+
     except Exception as e:
-        print("Error in process_gif:")
-        import traceback
-        print(traceback.format_exc())
-        return jsonify({
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/download_processed/<filename>')
 def download_processed(filename):
     try:
         speed = float(request.args.get('speed', 0))
         use_interpolation = request.args.get('use_interpolation', 'false').lower() == 'true'
-        
+
+        # Validate speed parameter bounds
+        if not -10 <= speed <= 10:
+            return jsonify({'error': 'Speed parameter must be between -10 and 10'}), 400
+
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
+
         if not os.path.exists(input_path):
-            return jsonify({'error': f'File not found: {input_path}'}), 404
-        
+            return jsonify({'error': 'File not found'}), 404
+
         print(f"Streaming processed GIF with speed {speed}, interpolation: {use_interpolation}")
-        
-        if use_interpolation:
-            processed_gif = adjust_gif_speed_with_interpolation(input_path, speed)
-        else:
-            processed_gif = adjust_gif_speed_simple(input_path, speed)
-        
+
+        try:
+            if use_interpolation:
+                processed_gif = adjust_gif_speed_with_interpolation(input_path, speed)
+            else:
+                processed_gif = adjust_gif_speed_simple(input_path, speed)
+        except Exception as processing_error:
+            return jsonify({'error': f'Processing failed: {str(processing_error)}'}), 500
+
         return app.response_class(
             processed_gif,
             mimetype='image/gif',
@@ -218,31 +275,46 @@ def download_processed(filename):
                 'Content-Disposition': f'attachment; filename="processed_{filename}"'
             }
         )
-        
+
+    except ValueError as e:
+        return jsonify({'error': f'Invalid parameter: {str(e)}'}), 400
     except Exception as e:
-        print("Error in download_processed:")
-        import traceback
-        print(traceback.format_exc())
-        return jsonify({
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
+    filename = secure_filename(filename)
+    if not filename:
+        return jsonify({'error': 'Invalid filename'}), 400
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/cleanup_original/<filename>', methods=['POST'])
 def cleanup_original(filename):
     try:
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+
         original_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         if os.path.exists(original_path):
             os.remove(original_path)
             print(f"Cleaned up original file: {filename}")
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error cleaning up original file {filename}: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Cleanup failed'}), 500
+
+# Flask error handlers for better security
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({'error': 'File too large. Maximum size is 10MB.'}), 413
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Resource not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
