@@ -53,7 +53,8 @@ def adjust_gif_speed_simple(input_path, speed_factor):
     if speed_factor > 0:
         multiplier = 1 / (1 + (speed_factor / 10) * 0.9)
     elif speed_factor < 0:
-        multiplier = abs(1 - (speed_factor / 10))
+        # Ensure multiplier doesn't become too small to avoid division by zero
+        multiplier = max(0.1, abs(1 - (speed_factor / 10)))
     else:
         multiplier = 1
 
@@ -69,6 +70,8 @@ def adjust_gif_speed_simple(input_path, speed_factor):
             img.seek(img.tell() + 1)
     except EOFError:
         pass
+    finally:
+        img.close()  # Ensure image is properly closed
 
     output_buffer = io.BytesIO()
     frames[0].save(
@@ -107,6 +110,8 @@ def adjust_gif_speed_with_interpolation(input_path, speed_factor):
                 img.seek(img.tell() + 1)
         except EOFError:
             pass
+        finally:
+            img.close()  # Ensure image is properly closed
 
         print(f"Extracted {len(frames)} original frames")
         
@@ -186,6 +191,10 @@ def upload_file():
             return jsonify({'error': 'Invalid filename'}), 400
 
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Security check: ensure the resolved path is within upload directory
+        if not os.path.abspath(filepath).startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])):
+            return jsonify({'error': 'Invalid file path'}), 400
 
         file.save(filepath)
         return jsonify({
@@ -225,6 +234,11 @@ def process_gif():
             return jsonify({'error': 'Invalid filename'}), 400
 
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Security check: ensure the resolved path is within upload directory
+        if not os.path.abspath(input_path).startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])):
+            return jsonify({'error': 'Invalid file path'}), 400
+            
         print(f"Looking for input file at: {input_path}")
 
         if not os.path.exists(input_path):
@@ -254,6 +268,10 @@ def download_processed(filename):
             return jsonify({'error': 'Invalid filename'}), 400
 
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Security check: ensure the resolved path is within upload directory
+        if not os.path.abspath(input_path).startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])):
+            return jsonify({'error': 'Invalid file path'}), 400
 
         if not os.path.exists(input_path):
             return jsonify({'error': 'File not found'}), 404
@@ -296,6 +314,11 @@ def cleanup_original(filename):
             return jsonify({'error': 'Invalid filename'}), 400
 
         original_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Security check: ensure the resolved path is within upload directory
+        if not os.path.abspath(original_path).startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])):
+            return jsonify({'error': 'Invalid file path'}), 400
+            
         if os.path.exists(original_path):
             os.remove(original_path)
             print(f"Cleaned up original file: {filename}")
