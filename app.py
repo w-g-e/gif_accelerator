@@ -4,6 +4,8 @@ import numpy as np
 import os
 import io
 import time
+import threading
+from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -12,6 +14,8 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB file size limit
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSING_TIMEOUT'] = 30  # 30 seconds processing timeout
+app.config['CLEANUP_INTERVAL'] = 300  # 5 minutes cleanup interval
+app.config['FILE_MAX_AGE'] = 1800  # 30 minutes max file age
 
 UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
 if not os.path.exists(UPLOAD_FOLDER):
@@ -154,6 +158,55 @@ def adjust_gif_speed_with_interpolation(input_path, speed_factor):
         print(traceback.format_exc())
         raise
 
+def cleanup_old_files():
+    """Clean up files older than FILE_MAX_AGE"""
+    try:
+        upload_folder = app.config['UPLOAD_FOLDER']
+        max_age = app.config['FILE_MAX_AGE']
+        current_time = time.time()
+        
+        if not os.path.exists(upload_folder):
+            return
+            
+        files_cleaned = 0
+        for filename in os.listdir(upload_folder):
+            file_path = os.path.join(upload_folder, filename)
+            
+            # Security check: ensure file is within upload directory
+            if not os.path.abspath(file_path).startswith(os.path.abspath(upload_folder)):
+                continue
+                
+            if os.path.isfile(file_path):
+                file_age = current_time - os.path.getmtime(file_path)
+                if file_age > max_age:
+                    try:
+                        os.remove(file_path)
+                        files_cleaned += 1
+                        print(f"Cleaned up old file: {filename} (age: {file_age:.1f}s)")
+                    except OSError as e:
+                        print(f"Error cleaning up {filename}: {e}")
+        
+        if files_cleaned > 0:
+            print(f"Session cleanup: removed {files_cleaned} old files")
+            
+    except Exception as e:
+        print(f"Error in cleanup_old_files: {e}")
+
+def start_cleanup_scheduler():
+    """Start background thread for periodic cleanup"""
+    def cleanup_worker():
+        while True:
+            try:
+                cleanup_old_files()
+                time.sleep(app.config['CLEANUP_INTERVAL'])
+            except Exception as e:
+                print(f"Error in cleanup worker: {e}")
+                time.sleep(60)  # Wait 1 minute before retrying
+    
+    cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
+    cleanup_thread.start()
+    print("Started session-based cleanup scheduler")
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -197,6 +250,10 @@ def upload_file():
             return jsonify({'error': 'Invalid file path'}), 400
 
         file.save(filepath)
+        
+        # Update file timestamp to mark as recently used
+        os.utime(filepath, None)
+        
         return jsonify({
             'success': True,
             'filename': filename,
@@ -277,6 +334,9 @@ def download_processed(filename):
             return jsonify({'error': 'File not found'}), 404
 
         print(f"Streaming processed GIF with speed {speed}, interpolation: {use_interpolation}")
+        
+        # Update file timestamp to mark as recently used
+        os.utime(input_path, None)
 
         try:
             if use_interpolation:
@@ -326,6 +386,15 @@ def cleanup_original(filename):
     except Exception as e:
         return jsonify({'error': 'Cleanup failed'}), 500
 
+@app.route('/cleanup_old_files', methods=['POST'])
+def manual_cleanup():
+    """Manual cleanup endpoint for testing or admin use"""
+    try:
+        cleanup_old_files()
+        return jsonify({'success': True, 'message': 'Cleanup completed'})
+    except Exception as e:
+        return jsonify({'error': f'Cleanup failed: {str(e)}'}), 500
+
 # Flask error handlers for better security
 @app.errorhandler(413)
 def request_entity_too_large(error):
@@ -340,4 +409,11 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
+    # Clean up any existing old files on startup
+    print("Starting GIF Accelerator...")
+    cleanup_old_files()
+    
+    # Start the background cleanup scheduler
+    start_cleanup_scheduler()
+    
     app.run(debug=True, port=8080)
