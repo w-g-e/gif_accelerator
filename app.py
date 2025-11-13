@@ -22,8 +22,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 
-# Note: Advanced timeout implementation would require threading or multiprocessing
-# For now, we rely on reasonable frame limits in the GIF processing functions
+
 
 def validate_file_size(file_stream):
     """Validate file size without loading entire file into memory"""
