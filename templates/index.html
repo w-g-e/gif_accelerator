@@ -76,6 +76,38 @@
             const downloadButton = document.getElementById('downloadButton');
             const originalContainer = document.getElementById('originalGifContainer');
             const processedContainer = document.getElementById('processedGifContainer');
+            const appTitle = document.querySelector('.app-title');
+
+            // Magnifying glass effect for header
+            if (appTitle) {
+                appTitle.addEventListener('mousemove', function(e) {
+                    const rect = this.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+                    
+                    // Calculate distance from center for intensity
+                    const centerX = 50;
+                    const centerY = 50;
+                    const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+                    const maxDistance = Math.sqrt(Math.pow(50, 2) + Math.pow(50, 2));
+                    const intensity = 1 - (distance / maxDistance);
+                    
+                    // Scale from 1.0 to 1.5 based on proximity to cursor
+                    const scale = 1 + (intensity * 0.5);
+                    
+                    this.style.setProperty('--magnify-x', x + '%');
+                    this.style.setProperty('--magnify-y', y + '%');
+                    this.style.setProperty('--magnify-scale', scale);
+                    this.style.transform = `scale(${scale})`;
+                });
+
+                appTitle.addEventListener('mouseleave', function() {
+                    this.style.setProperty('--magnify-x', '50%');
+                    this.style.setProperty('--magnify-y', '50%');
+                    this.style.setProperty('--magnify-scale', '1');
+                    this.style.transform = 'scale(1)';
+                });
+            }
 
             function getSpeedText(value) {
                 const speed = parseInt(value);

@@ -29,11 +29,56 @@ body {
     position: relative;
     z-index: 10;
     text-align: center;
-    margin-bottom: 2rem;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: white;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 2.5rem;
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f0ff 50%, #ffffff 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleGradient 3s ease infinite;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    padding: 1rem 0;
+    cursor: crosshair;
+    overflow: visible;
+    --magnify-x: 50%;
+    --magnify-y: 50%;
+    --magnify-scale: 1;
+    transform-origin: var(--magnify-x) var(--magnify-y);
+    transition: transform 0.1s ease-out;
+}
+
+.app-title::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+        circle 80px at var(--magnify-x) var(--magnify-y),
+        rgba(255, 255, 255, 0.3) 0%,
+        transparent 70%
+    );
+    pointer-events: none;
+    opacity: calc((var(--magnify-scale) - 1) * 2);
+    transition: opacity 0.1s ease-out;
+    border-radius: 50%;
+}
+
+@keyframes titleGradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 .upload-section {

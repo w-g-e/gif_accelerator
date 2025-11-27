@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# Security configuration
+# security configs
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB file size limit
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSING_TIMEOUT'] = 30  # 30 seconds processing timeout
@@ -374,7 +374,7 @@ def cleanup_original(filename):
 
         original_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         
-        # Security check: ensure the resolved path is within upload directory
+        # ensure the resolved path is within upload directory
         if not os.path.abspath(original_path).startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])):
             return jsonify({'error': 'Invalid file path'}), 400
             
